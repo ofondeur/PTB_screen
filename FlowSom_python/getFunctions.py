@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 
 def parse_node_size(node_sizes, max_node_size, ref_node_size=None):
@@ -17,6 +18,31 @@ def parse_node_size(node_sizes, max_node_size, ref_node_size=None):
 
     scaled = (np.log1p(node_sizes) / np.log1p(ref_node_size)) * max_node_size
     return scaled
+
+
+def parse_layout(fsom, layout):
+    n_clusters = len(fsom["map"]["pctgs"])  # Nombre de clusters
+
+    # Si `layout` est une matrice ou un DataFrame
+    if isinstance(layout, (np.ndarray, pd.DataFrame)):
+        if layout.shape[0] == n_clusters and layout.shape[1] == 2:
+            layout_df = pd.DataFrame(layout, columns=["x", "y"])
+        else:
+            raise ValueError(f"Layout must have {n_clusters} rows and 2 columns.")
+
+    # Si `layout` est une chaîne de caractères
+    elif layout == "grid":
+        layout_df = pd.DataFrame(fsom["map"]["grid"], columns=["x", "y"])
+
+    elif layout == "MST":
+        layout_df = pd.DataFrame(fsom["MST"]["l"], columns=["x", "y"])
+
+    else:
+        raise ValueError(
+            "Layout should be 'MST', 'grid', or a 2-column matrix/DataFrame."
+        )
+
+    return layout_df
 
 
 def get_cluster_mfis(fsom, cols_used=False, pretty_colnames=False):
@@ -102,26 +128,93 @@ def get_channels(obj, markers, exact=True):
     return channel_names
 
 
-def parse_layout(fsom, layout):
-    n_clusters = len(fsom["map"]["pctgs"])  # Nombre de clusters
+def add_scale(
+    ax,
+    values=None,
+    colors=None,
+    limits=None,
+    show_legend=True,
+    label_legend="",
+    type="fill",
+):
+    if isinstance(values, (str, bool)):
+        values = np.array(values, dtype="category")
 
-    # Si `layout` est une matrice ou un DataFrame
-    if isinstance(layout, (np.ndarray, pd.DataFrame)):
-        if layout.shape[0] == n_clusters and layout.shape[1] == 2:
-            layout_df = pd.DataFrame(layout, columns=["x", "y"])
-        else:
-            raise ValueError(f"Layout must have {n_clusters} rows and 2 columns.")
+    # Vérifier les couleurs
+    if colors is None:
+        colors = ["#FFFFFF"] * len(values)
 
-    # Si `layout` est une chaîne de caractères
-    elif layout == "grid":
-        layout_df = pd.DataFrame(fsom["map"]["grid"], columns=["x", "y"])
-
-    elif layout == "MST":
-        layout_df = pd.DataFrame(fsom["MST"]["l"], columns=["x", "y"])
-
-    else:
-        raise ValueError(
-            "Layout should be 'MST', 'grid', or a 2-column matrix/DataFrame."
+    # Appliquer l'échelle
+    if isinstance(values, np.ndarray) and np.issubdtype(values.dtype, np.number):
+        # Utiliser un gradient pour les valeurs continues
+        cmap = plt.cm.get_cmap("viridis")
+        norm = plt.Normalize(vmin=limits[0], vmax=limits[1])
+        sc = ax.scatter(
+            values["x"], values["y"], c=values, cmap=cmap, norm=norm, s=values["size"]
         )
+        if show_legend:
+            plt.colorbar(sc, ax=ax, label=label_legend)
+    else:
+        # Utiliser une échelle manuelle pour les valeurs discrètes
+        cmap = plt.cm.get_cmap("tab10")
+        sc = ax.scatter(values["x"], values["y"], c=values, cmap=cmap, s=values["size"])
+        if show_legend:
+            plt.legend(loc="best")
 
-    return layout_df
+    return ax
+
+
+def add_nodes(
+    ax,
+    node_info=None,
+    values=None,
+    lim=None,
+    color_palette=None,
+    fill_color="white",
+    show_legend=True,
+    label="",
+    **kwargs,
+):
+    if isinstance(values, (str, bool)):
+        values = np.array(values, dtype="category")
+
+    add_scale(
+        ax,
+        values=values,
+        colors=color_palette,
+        lim=lim,
+        label_legend=label,
+        show_legend=show_legend,
+    )
+
+    ax.scatter(node_info["x"], node_info["y"], s=node_info["size"], c=values, **kwargs)
+
+    return ax
+
+
+def add_background(
+    ax, background_values, background_colors=None, background_lim=None, alpha=0.4
+):
+    if isinstance(background_values, (list, np.ndarray)) and isinstance(
+        background_values[0], str
+    ):
+        background_values = np.array(background_values, dtype="category")
+
+    add_scale(
+        ax,
+        values=background_values,
+        colors=background_colors,
+        limits=background_lim,
+        label_legend="background",
+    )
+
+    scatter = ax.scatter(
+        x=ax.get_children()[0].get_offsets()[:, 0],
+        y=ax.get_children()[0].get_offsets()[:, 1],
+        s=500,
+        c=background_values,
+        cmap=background_colors,
+        alpha=alpha,
+    )
+
+    return ax

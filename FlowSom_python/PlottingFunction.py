@@ -8,7 +8,32 @@ from getFunctions import (
     parse_node_size,
     get_channels,
     get_cluster_mfis,
+    add_nodes,
 )
+
+
+def plot_variable(
+    fsom, variable, variable_name="", color_palette=None, lim=None, **kwargs
+):
+    # Mettre à jour le FlowSOM
+    fsom = update_flowsom(fsom)
+
+    # Vérifier si la longueur de la variable est correcte
+    if len(variable) != len(fsom["map"]["nNodes"]):
+        raise ValueError(
+            f"Length of 'variable' should be equal to number of clusters in FlowSOM object "
+            f"({len(fsom['map']['nNodes'])} clusters and {len(variable)} variables)."
+        )
+
+    # Plot de base avec PlotFlowSOM
+    ax = plot_flowsom(fsom, **kwargs)
+
+    # Ajouter les nœuds avec la couleur
+    add_nodes(
+        ax, variable=variable, color_palette=color_palette, lim=lim, label=variable_name
+    )
+
+    return ax
 
 
 def plot_flowsom(
@@ -26,12 +51,6 @@ def plot_flowsom(
     alpha=0.4,
     title=None,
 ):
-    """
-    Python equivalent of PlotFlowSOM in R.
-    Visualizes the FlowSOM clustering structure.
-    """
-
-    # Mise à jour de l'objet FlowSOM
     fsom = update_flowsom(fsom)
 
     # Nombre de clusters
@@ -96,74 +115,42 @@ def plot_flowsom(
     return fig
 
 
-def plot_variable(fsom, variable, variable_name="", color_palette="viridis", lim=None):
-    """
-    Plots a variable on a FlowSOM map using PlotFlowSOM as base.
-    """
-
-    fsom = update_flowsom(fsom)
-
-    if len(variable) != len(fsom["map"]["pctgs"]):
-        raise ValueError(
-            f"Length of 'variable' should match FlowSOM clusters ({len(fsom['map']['pctgs'])})."
-        )
-
-    fig = plot_flowsom(fsom)
-
-    # Ajouter la coloration des nœuds avec les valeurs de la variable
-    sns.scatterplot(
-        x=fsom["map"]["layout"]["x"],
-        y=fsom["map"]["layout"]["y"],
-        size=variable,
-        sizes=(10, 300),
-        hue=variable,
-        palette=color_palette,
-        legend=True,
-    )
-
-    plt.title(variable_name)
-    plt.show()
-
-    return fig
-
-
-def plot_marker(
-    fsom, marker, ref_markers=None, title=None, color_palette="viridis", lim=None
+def plot_marker2(
+    fsom, marker, ref_markers=None, title=None, color_palette=None, lim=None, **kwargs
 ):
-    # Mise à jour de l'objet FlowSOM (si nécessaire)
     fsom = update_flowsom(fsom)
 
-    # Récupérer les valeurs MFI (Median Fluorescence Intensity)
     mfis = get_cluster_mfis(fsom)
-
-    # Récupérer les colonnes associées au marqueur
     channels = get_channels(fsom, marker)
 
-    # Calculer les limites (si non spécifiées)
     if ref_markers is None:
         ref_markers = fsom["map"]["colsUsed"]
+
     ref_channels = get_channels(fsom, ref_markers)
-
     if lim is None:
-        lim = (np.min(mfis[ref_channels].values), np.max(mfis[ref_channels].values))
-
-    # Création des sous-plots
-    num_channels = len(channels)
-    fig, axes = plt.subplots(1, num_channels, figsize=(5 * num_channels, 5))
-
-    if num_channels == 1:
-        axes = [axes]  # Assurer que axes est une liste même avec un seul subplot
-
-    for i, channel in enumerate(channels):
-        ax = axes[i]
-
-        # Utiliser les valeurs MFI comme variable à représenter
-        sns.heatmap(
-            mfis[[channel]], ax=ax, cmap=color_palette, vmin=lim[0], vmax=lim[1]
+        lim = [min(mfis[ref_channels]), max(mfis[ref_channels])]
+    plot_list = []
+    for channel in channels:
+        p = plot_variable(
+            fsom,
+            variable=mfis[channels.index(channel)],
+            variable_name="MFI",
+            color_palette=color_palette,
+            lim=lim,
+            **kwargs,
         )
 
-        # Ajouter un titre
-        ax.set_title(title if title else channel)
+        if title and isinstance(title, list) and len(title) > channels.index(channel):
+            p.set_title(title[channels.index(channel)])
+        else:
+            p.set_title("")
 
-    plt.tight_layout()
+        plot_list.append(p)
+
+    fig, axes = plt.subplots(1, len(plot_list), figsize=(15, 5))
+    for ax, plot in zip(axes, plot_list):
+        ax.imshow(plot)
+
+    plt.legend(loc="right")
+
     return fig
