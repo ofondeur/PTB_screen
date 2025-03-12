@@ -1,0 +1,75 @@
+import re
+import pandas as pd
+
+
+def update_flowsom(fsom):
+    if isinstance(fsom, dict) and "FlowSOM" in fsom:
+        fsom["FlowSOM"]["metaclustering"] = fsom["metaclustering"]
+        fsom = fsom["FlowSOM"]
+
+    if not isinstance(fsom, dict) or "map" not in fsom:
+        raise ValueError("fsom should be a FlowSOM object.")
+
+    fsom["prettyColnames"] = [
+        col.replace("(", "<").replace(")", ">")
+        for col in fsom.get("prettyColnames", [])
+    ]
+
+    if "pctgs" not in fsom["map"]:
+        pctgs = {str(i + 1): 0 for i in range(fsom["map"]["nNodes"])}
+        pctgs_tmp = pd.Series(fsom["map"]["mapping"][:, 0]).value_counts(normalize=True)
+        for k, v in pctgs_tmp.items():
+            pctgs[str(k)] = v
+        fsom["map"]["pctgs"] = pctgs
+
+    if "nMetaclusters" not in fsom["map"]:
+        fsom["map"]["nMetaclusters"] = len(set(fsom["metaclustering"]))
+
+    if "metaclusterMFIs" not in fsom["map"] and "metaclustering" in fsom:
+        metacluster_df = pd.DataFrame(fsom["data"])
+        metacluster_df["mcl"] = [
+            fsom["metaclustering"][i] for i in fsom["map"]["mapping"][:, 0]
+        ]
+        fsom["map"]["metaclusterMFIs"] = (
+            metacluster_df.groupby("mcl").median().drop(columns=["mcl"])
+        )
+
+    return fsom
+
+
+def get_channels(obj, markers, exact=True):
+    """
+    Retrieves channel names for given markers in a FlowSOM or flowFrame object.
+
+    Parameters:
+    - obj (dict): FlowSOM object.
+    - markers (list): List of markers to find.
+    - exact (bool): Whether to match exact marker names.
+
+    Returns:
+    - list: Corresponding channel names.
+    """
+    if "flowFrame" in obj:
+        object_channels = list(obj["flowFrame"]["parameters"]["name"])
+        object_markers = list(obj["flowFrame"]["parameters"]["desc"])
+    elif "FlowSOM" in obj:
+        object_channels = list(obj["prettyColnames"].keys())
+        object_markers = [re.sub(r" <.*", "", col) for col in obj["prettyColnames"]]
+    else:
+        raise ValueError("Object should be of class flowFrame or FlowSOM")
+
+    channel_names = []
+    for marker in markers:
+        if isinstance(marker, int):
+            channel_names.append(object_channels[marker])
+        else:
+            pattern = rf"^{re.escape(marker)}$" if exact else marker
+            matched_idx = [
+                i for i, name in enumerate(object_markers) if re.match(pattern, name)
+            ]
+            if matched_idx:
+                channel_names.extend([object_channels[i] for i in matched_idx])
+            else:
+                raise ValueError(f"Marker {marker} could not be found")
+
+    return channel_names
