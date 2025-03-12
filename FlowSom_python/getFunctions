@@ -7,20 +7,8 @@ import pandas as pd
 
 
 def parse_node_size(node_sizes, max_node_size, ref_node_size=None):
-    """
-    Scale node sizes relative to a reference node size using a logarithmic scale.
-
-    Parameters:
-    - node_sizes (list or np.array): Vector of node sizes.
-    - max_node_size (float): Maximum node size allowed.
-    - ref_node_size (float, optional): Reference node size for scaling. Defaults to max(node_sizes).
-
-    Returns:
-    - np.array: Scaled node sizes.
-    """
     node_sizes = np.array(node_sizes, dtype=float)
-    node_sizes[np.isnan(node_sizes)] = 0  # Remplace les NaN par 0
-
+    node_sizes[np.isnan(node_sizes)] = 0
     if ref_node_size is None:
         ref_node_size = max(node_sizes)
 
@@ -32,17 +20,6 @@ def parse_node_size(node_sizes, max_node_size, ref_node_size=None):
 
 
 def get_cluster_mfis(fsom, cols_used=False, pretty_colnames=False):
-    """
-    Extracts the median fluorescence intensities (MFI) for each cluster in a FlowSOM object.
-
-    Parameters:
-    - fsom (dict): FlowSOM object containing clustering and MFI data.
-    - cols_used (bool): Whether to use only selected columns.
-    - pretty_colnames (bool): Whether to use pretty column names.
-
-    Returns:
-    - DataFrame: MFI values per cluster.
-    """
     fsom = update_flowsom(fsom)
     mfis = fsom["map"]["medianValues"]
     mfis.index = range(1, len(mfis) + 1)
@@ -99,17 +76,6 @@ def update_flowsom(fsom):
 
 
 def get_channels(obj, markers, exact=True):
-    """
-    Retrieves channel names for given markers in a FlowSOM or flowFrame object.
-
-    Parameters:
-    - obj (dict): FlowSOM object.
-    - markers (list): List of markers to find.
-    - exact (bool): Whether to match exact marker names.
-
-    Returns:
-    - list: Corresponding channel names.
-    """
     if "flowFrame" in obj:
         object_channels = list(obj["flowFrame"]["parameters"]["name"])
         object_markers = list(obj["flowFrame"]["parameters"]["desc"])
@@ -134,3 +100,28 @@ def get_channels(obj, markers, exact=True):
                 raise ValueError(f"Marker {marker} could not be found")
 
     return channel_names
+
+
+def parse_layout(fsom, layout):
+    n_clusters = len(fsom["map"]["pctgs"])  # Nombre de clusters
+
+    # Si `layout` est une matrice ou un DataFrame
+    if isinstance(layout, (np.ndarray, pd.DataFrame)):
+        if layout.shape[0] == n_clusters and layout.shape[1] == 2:
+            layout_df = pd.DataFrame(layout, columns=["x", "y"])
+        else:
+            raise ValueError(f"Layout must have {n_clusters} rows and 2 columns.")
+
+    # Si `layout` est une chaîne de caractères
+    elif layout == "grid":
+        layout_df = pd.DataFrame(fsom["map"]["grid"], columns=["x", "y"])
+
+    elif layout == "MST":
+        layout_df = pd.DataFrame(fsom["MST"]["l"], columns=["x", "y"])
+
+    else:
+        raise ValueError(
+            "Layout should be 'MST', 'grid', or a 2-column matrix/DataFrame."
+        )
+
+    return layout_df

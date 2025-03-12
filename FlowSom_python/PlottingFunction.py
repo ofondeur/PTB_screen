@@ -2,6 +2,13 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+from getFunctions import (
+    update_flowsom,
+    parse_layout,
+    parse_node_size,
+    get_channels,
+    get_cluster_mfis,
+)
 
 
 def plot_flowsom(
@@ -117,4 +124,46 @@ def plot_variable(fsom, variable, variable_name="", color_palette="viridis", lim
     plt.title(variable_name)
     plt.show()
 
+    return fig
+
+
+def plot_marker(
+    fsom, marker, ref_markers=None, title=None, color_palette="viridis", lim=None
+):
+    # Mise à jour de l'objet FlowSOM (si nécessaire)
+    fsom = update_flowsom(fsom)
+
+    # Récupérer les valeurs MFI (Median Fluorescence Intensity)
+    mfis = get_cluster_mfis(fsom)
+
+    # Récupérer les colonnes associées au marqueur
+    channels = get_channels(fsom, marker)
+
+    # Calculer les limites (si non spécifiées)
+    if ref_markers is None:
+        ref_markers = fsom["map"]["colsUsed"]
+    ref_channels = get_channels(fsom, ref_markers)
+
+    if lim is None:
+        lim = (np.min(mfis[ref_channels].values), np.max(mfis[ref_channels].values))
+
+    # Création des sous-plots
+    num_channels = len(channels)
+    fig, axes = plt.subplots(1, num_channels, figsize=(5 * num_channels, 5))
+
+    if num_channels == 1:
+        axes = [axes]  # Assurer que axes est une liste même avec un seul subplot
+
+    for i, channel in enumerate(channels):
+        ax = axes[i]
+
+        # Utiliser les valeurs MFI comme variable à représenter
+        sns.heatmap(
+            mfis[[channel]], ax=ax, cmap=color_palette, vmin=lim[0], vmax=lim[1]
+        )
+
+        # Ajouter un titre
+        ax.set_title(title if title else channel)
+
+    plt.tight_layout()
     return fig
