@@ -1,5 +1,66 @@
 import re
 import pandas as pd
+import pandas as pd
+import numpy as np
+import numpy as np
+import pandas as pd
+
+
+def parse_node_size(node_sizes, max_node_size, ref_node_size=None):
+    """
+    Scale node sizes relative to a reference node size using a logarithmic scale.
+
+    Parameters:
+    - node_sizes (list or np.array): Vector of node sizes.
+    - max_node_size (float): Maximum node size allowed.
+    - ref_node_size (float, optional): Reference node size for scaling. Defaults to max(node_sizes).
+
+    Returns:
+    - np.array: Scaled node sizes.
+    """
+    node_sizes = np.array(node_sizes, dtype=float)
+    node_sizes[np.isnan(node_sizes)] = 0  # Remplace les NaN par 0
+
+    if ref_node_size is None:
+        ref_node_size = max(node_sizes)
+
+    if len(np.unique(node_sizes)) == 1:
+        return np.full_like(node_sizes, max_node_size, dtype=float)
+
+    scaled = (np.log1p(node_sizes) / np.log1p(ref_node_size)) * max_node_size
+    return scaled
+
+
+def get_cluster_mfis(fsom, cols_used=False, pretty_colnames=False):
+    """
+    Extracts the median fluorescence intensities (MFI) for each cluster in a FlowSOM object.
+
+    Parameters:
+    - fsom (dict): FlowSOM object containing clustering and MFI data.
+    - cols_used (bool): Whether to use only selected columns.
+    - pretty_colnames (bool): Whether to use pretty column names.
+
+    Returns:
+    - DataFrame: MFI values per cluster.
+    """
+    fsom = update_flowsom(fsom)
+    mfis = fsom["map"]["medianValues"]
+    mfis.index = range(1, len(mfis) + 1)
+
+    if "colsUsed" not in fsom["map"]:
+        cols_used = False
+    if "prettyColnames" not in fsom:
+        pretty_colnames = False
+
+    if cols_used and not pretty_colnames:
+        mfis = mfis.loc[:, fsom["map"]["colsUsed"]]
+    elif not cols_used and pretty_colnames:
+        mfis.columns = fsom["prettyColnames"]
+    elif cols_used and pretty_colnames:
+        mfis = mfis.loc[:, fsom["map"]["colsUsed"]]
+        mfis.columns = [fsom["prettyColnames"][i] for i in fsom["map"]["colsUsed"]]
+
+    return mfis
 
 
 def update_flowsom(fsom):
