@@ -71,9 +71,6 @@ def update_flowsom(fsom):
         fsom["FlowSOM"]["metaclustering"] = fsom["metaclustering"]
         fsom = fsom["FlowSOM"]
 
-    if not isinstance(fsom, dict) or "map" not in fsom:
-        raise ValueError("fsom should be a FlowSOM object.")
-
     fsom["prettyColnames"] = [
         col.replace("(", "<").replace(")", ">")
         for col in fsom.get("prettyColnames", [])
