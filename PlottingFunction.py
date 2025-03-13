@@ -1,21 +1,17 @@
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-import re
-import matplotlib.backends.backend_pdf
-import matplotlib.colors
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
 from matplotlib import collections as mc
-from matplotlib import gridspec
-from scanpy.preprocessing import neighbors
-from scanpy.tools import umap
-from scipy.stats import gaussian_kde
 
-from AddFunctions import FlowSOM_colors, add_nodes, add_text, add_legend
+from AddFunctions import (
+    FlowSOM_colors,
+    add_nodes,
+    add_text,
+    add_legend,
+    add_MST,
+    parse_node_sizes,
+    gg_color_hue,
+)
 from getFunctions import get_channels
 
 

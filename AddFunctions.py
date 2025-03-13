@@ -105,7 +105,78 @@ def add_legend(
     return ax, fig
 
 
+def parse_edges(fsom):
+    edge_list = fsom.get_cluster_data().uns["graph"].get_edgelist()
+    coords = fsom.get_cluster_data().obsm["layout"]
+    segment_plot = [
+        (
+            coords[nodeID[0], 0],
+            coords[nodeID[0], 1],
+            coords[nodeID[1], 0],
+            coords[nodeID[1], 1],
+        )
+        for nodeID in edge_list
+    ]
+    return np.asarray(segment_plot, dtype=np.float32)
+
+
 def add_MST(fsom):
     edges = parse_edges(fsom)
     lines = [[(row[0], row[1]), (row[2], row[3])] for row in edges]
     return lines
+
+
+def gg_color_hue():
+    """Colormap of default ggplot colors."""
+    cmap = matplotlib.colors.ListedColormap(
+        [
+            "#F8766D",
+            "#D89000",
+            "#A3A500",
+            "#39B600",
+            "#00BF7D",
+            "#00BFC4",
+            "#00B0F6",
+            "#9590FF",
+            "#E76BF3",
+            "#FF62BC",
+        ]
+    )
+    return cmap
+
+
+def auto_max_node_size(layout, overlap):
+    overlap = 1 + overlap
+    min_distance = min(pdist(layout))
+    return min_distance / 2 * overlap
+
+
+def parse_node_sizes(
+    fsom,
+    view="MST",
+    node_sizes=None,
+    max_node_size=1,
+    ref_node_size=None,
+    equal_node_size=False,
+):
+    node_sizes = (
+        fsom.get_cluster_data().obs["percentages"] if node_sizes is None else node_sizes
+    )
+    ref_node_size = max(node_sizes) if ref_node_size is None else ref_node_size
+    layout = (
+        fsom.get_cluster_data().obsm["layout"]
+        if view == "MST"
+        else fsom.get_cluster_data().obsm["grid"]
+    )
+    auto_node_size = auto_max_node_size(layout, 1 if view == "MST" else -0.3)  # overlap
+    max_node_size = auto_node_size * max_node_size
+
+    if equal_node_size:
+        node_sizes = np.repeat(max_node_size, len(node_sizes))
+    n_nodes = len(node_sizes)
+    if len(np.unique(node_sizes)) == 1:
+        return np.repeat(max_node_size, n_nodes)
+    scaled_node_size = np.sqrt(
+        np.multiply((np.divide(node_sizes, ref_node_size)), np.square(max_node_size))
+    )
+    return scaled_node_size
