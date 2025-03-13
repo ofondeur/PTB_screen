@@ -21,79 +21,56 @@ def parse_node_size(node_sizes, max_node_size, ref_node_size=None):
 
 
 def parse_layout(fsom, layout):
-    n_clusters = len(fsom["map"]["pctgs"])  # Nombre de clusters
+    cluster_data = fsom.get_cluster_data()
 
-    # Si `layout` est une matrice ou un DataFrame
-    if isinstance(layout, (np.ndarray, pd.DataFrame)):
-        if layout.shape[0] == n_clusters and layout.shape[1] == 2:
-            layout_df = pd.DataFrame(layout, columns=["x", "y"])
+    if isinstance(layout, (pd.DataFrame, np.ndarray)):
+        if layout.shape[0] == cluster_data.n_obs and layout.shape[1] == 2:
+            return pd.DataFrame(layout, columns=["x", "y"])
         else:
-            raise ValueError(f"Layout must have {n_clusters} rows and 2 columns.")
+            raise ValueError(
+                f"Layout doit avoir {cluster_data.n_obs} lignes et 2 colonnes."
+            )
 
-    # Si `layout` est une chaîne de caractères
     elif layout == "grid":
-        layout_df = pd.DataFrame(fsom["map"]["grid"], columns=["x", "y"])
+        return pd.DataFrame(cluster_data.obsm["grid"], columns=["x", "y"])
 
     elif layout == "MST":
-        layout_df = pd.DataFrame(fsom["MST"]["l"], columns=["x", "y"])
+        return pd.DataFrame(cluster_data.uns["graph"], columns=["x", "y"])
 
     else:
-        raise ValueError(
-            "Layout should be 'MST', 'grid', or a 2-column matrix/DataFrame."
-        )
-
-    return layout_df
+        raise ValueError("Le layout doit être 'MST', 'grid' ou une matrice 2D.")
 
 
 def get_cluster_mfis(fsom, cols_used=False, pretty_colnames=False):
     fsom = update_flowsom(fsom)
-    mfis = fsom["map"]["medianValues"]
-    mfis.index = range(1, len(mfis) + 1)
+    cluster_data = fsom.get_cluster_data()
 
-    if "colsUsed" not in fsom["map"]:
-        cols_used = False
-    if "prettyColnames" not in fsom:
-        pretty_colnames = False
+    if cluster_data.X is None:
+        raise ValueError("Aucune donnée MFI disponible dans cluster_data.")
 
-    if cols_used and not pretty_colnames:
-        mfis = mfis.loc[:, fsom["map"]["colsUsed"]]
-    elif not cols_used and pretty_colnames:
-        mfis.columns = fsom["prettyColnames"]
-    elif cols_used and pretty_colnames:
-        mfis = mfis.loc[:, fsom["map"]["colsUsed"]]
-        mfis.columns = [fsom["prettyColnames"][i] for i in fsom["map"]["colsUsed"]]
+    mfis = pd.DataFrame(cluster_data.X, columns=cluster_data.var.index)
+
+    if cols_used:
+        cols_used_indices = cluster_data.var["cols_used"]
+        mfis = mfis.iloc[:, cols_used_indices]
+
+    if pretty_colnames:
+        mfis.columns = cluster_data.var["pretty_colnames"]
 
     return mfis
 
 
 def update_flowsom(fsom):
-    if isinstance(fsom, dict) and "FlowSOM" in fsom:
-        fsom["FlowSOM"]["metaclustering"] = fsom["metaclustering"]
-        fsom = fsom["FlowSOM"]
+    cluster_data = fsom.get_cluster_data()
 
-    fsom["prettyColnames"] = [
-        col.replace("(", "<").replace(")", ">")
-        for col in fsom.get("prettyColnames", [])
-    ]
-
-    if "pctgs" not in fsom["map"]:
-        pctgs = {str(i + 1): 0 for i in range(fsom["map"]["nNodes"])}
-        pctgs_tmp = pd.Series(fsom["map"]["mapping"][:, 0]).value_counts(normalize=True)
-        for k, v in pctgs_tmp.items():
-            pctgs[str(k)] = v
-        fsom["map"]["pctgs"] = pctgs
-
-    if "nMetaclusters" not in fsom["map"]:
-        fsom["map"]["nMetaclusters"] = len(set(fsom["metaclustering"]))
-
-    if "metaclusterMFIs" not in fsom["map"] and "metaclustering" in fsom:
-        metacluster_df = pd.DataFrame(fsom["data"])
-        metacluster_df["mcl"] = [
-            fsom["metaclustering"][i] for i in fsom["map"]["mapping"][:, 0]
-        ]
-        fsom["map"]["metaclusterMFIs"] = (
-            metacluster_df.groupby("mcl").median().drop(columns=["mcl"])
+    if "n_nodes" not in cluster_data.uns:
+        raise ValueError(
+            "L'information sur le nombre de clusters est manquante dans cluster_data."
         )
+
+    # Assigner les valeurs importantes
+    fsom.n_nodes = cluster_data.uns["n_nodes"]
+    fsom.n_metaclusters = cluster_data.uns.get("n_metaclusters", None)
 
     return fsom
 
