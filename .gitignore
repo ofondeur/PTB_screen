@@ -9,3 +9,5 @@ plot_phenotypic_markers_MONO/
 per_marker_and_condition_MONO/
 mon_venv/
 __pycache__/
+PTB_drug_screen_MONO_combined_norm.h5ad/
+PTB drug screen complete - Statistics.csv/
