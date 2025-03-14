@@ -54,20 +54,14 @@ def plot_marker_pv_hv(
     return figpv, fighv
 
 
-def plot_marker_cust(
+def plot_marker_ph(
     fsom, marker, ref_markers=None, lim=None, cmap=FlowSOM_colors(), **kwargs
 ):
-    if ref_markers is None:
-        ref_markers_bool = fsom.get_cell_data().var["cols_used"]
-        ref_markers = fsom.get_cell_data().var_names[ref_markers_bool]
-
     mfis = fsom.get_cluster_data().X
-    ref_markers = list(get_channels(fsom, ref_markers).keys())
-    indices_markers = (
-        np.asarray(fsom.get_cell_data().var_names)[:, None] == ref_markers
-    ).argmax(axis=0)
     if lim is None:
-        lim = (mfis[:, indices_markers].min(), mfis[:, indices_markers].max())
+        marker_values_ = fsom.mudata["cell_data"][:, marker].X.flatten()
+        np.percentile(marker_values_, 5)
+        lim = (np.percentile(marker_values_, 5), np.percentile(marker_values_, 95))
     marker = list(get_channels(fsom, marker).keys())[0]
     marker_index = np.where(fsom.get_cell_data().var_names == marker)[0][0]
     fig = plot_variable(
@@ -132,6 +126,7 @@ def plot_variable(
         location="upper left",
         bbox_to_anchor=(1.04, 1),
         categorical=categorical,
+        lim=lim,
     )
     ax.axis("equal")
     if title is not None:

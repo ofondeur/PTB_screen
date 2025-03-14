@@ -69,6 +69,7 @@ def add_legend(
     orientation="horizontal",
     bbox_to_anchor=None,
     categorical=True,
+    lim=None,
 ):
     if categorical:
         unique_data = sorted(np.unique(data))
@@ -87,6 +88,7 @@ def add_legend(
         ]
         box = ax.get_position()
         ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+
         legend = plt.legend(
             handles=legend_elements,
             loc=location,
@@ -98,7 +100,10 @@ def add_legend(
         )
         plt.gca().add_artist(legend)
     else:
-        norm = matplotlib.colors.Normalize(vmin=min(data), vmax=max(data))
+        if lim:
+            norm = matplotlib.colors.Normalize(vmin=lim[0], vmax=lim[1])
+        else:
+            norm = matplotlib.colors.Normalize(vmin=min(data), vmax=max(data))
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         sm.set_array(data)
         fig.colorbar(sm, ax=ax, orientation=orientation, shrink=0.4, label=title)
