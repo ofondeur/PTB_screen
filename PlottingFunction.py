@@ -15,7 +15,46 @@ from AddFunctions import (
 from getFunctions import get_channels
 
 
-def plot_marker(
+def plot_marker_pv_hv(
+    fsompv, fsomhv, marker, lim=None, cmap=FlowSOM_colors(), **kwargs
+):
+    mfispv = fsompv.get_cluster_data().X
+    mfishv = fsomhv.get_cluster_data().X
+
+    if lim is None:
+        marker_values_pv = fsompv.mudata["cell_data"][:, marker].X.flatten()
+        marker_values_hv = fsomhv.mudata["cell_data"][:, marker].X.flatten()
+        lim = (
+            min(np.percentile(marker_values_pv, 5), np.percentile(marker_values_hv, 5)),
+            max(
+                np.percentile(marker_values_pv, 95), np.percentile(marker_values_hv, 95)
+            ),
+        )
+
+    markerpv = list(get_channels(fsompv, marker).keys())[0]
+    marker_indexpv = np.where(fsompv.get_cell_data().var_names == markerpv)[0][0]
+    figpv = plot_variable(
+        fsompv,
+        variable=mfispv[:, marker_indexpv],
+        cmap=cmap,
+        lim=lim,
+        categorical=False,
+        **kwargs,
+    )
+    markerhv = list(get_channels(fsomhv, marker).keys())[0]
+    marker_indexhv = np.where(fsomhv.get_cell_data().var_names == markerhv)[0][0]
+    fighv = plot_variable(
+        fsomhv,
+        variable=mfishv[:, marker_indexhv],
+        cmap=cmap,
+        lim=lim,
+        categorical=False,
+        **kwargs,
+    )
+    return figpv, fighv
+
+
+def plot_marker_cust(
     fsom, marker, ref_markers=None, lim=None, cmap=FlowSOM_colors(), **kwargs
 ):
     if ref_markers is None:
@@ -103,15 +142,15 @@ def plot_variable(
 
 def plot_FlowSOM(
     fsom,
-    view: str = "MST",
-    background_values: np.array | None = None,
+    view="MST",
+    background_values=None,
     background_cmap=gg_color_hue(),
     background_size=1.5,
     equal_background_size=False,
-    node_sizes: np.array | None = None,
-    max_node_size: int = 1,
-    ref_node_size: int | None = None,
-    equal_node_size: bool = False,
+    node_sizes=None,
+    max_node_size=1,
+    ref_node_size=None,
+    equal_node_size=False,
 ):
 
     # Initialization

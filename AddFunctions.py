@@ -176,7 +176,9 @@ def parse_node_sizes(
     n_nodes = len(node_sizes)
     if len(np.unique(node_sizes)) == 1:
         return np.repeat(max_node_size, n_nodes)
-    scaled_node_size = np.sqrt(
-        np.multiply((np.divide(node_sizes, ref_node_size)), np.square(max_node_size))
-    )
+    scaled_node_size = max_node_size * np.exp(node_sizes / ref_node_size) / np.exp(1)
+
+    # scaled_node_size = max_node_size * (node_sizes / ref_node_size) ** 1.5
+
+    # scaled_node_size = np.sqrt(np.multiply((np.divide(node_sizes, ref_node_size)), np.square(max_node_size)))
     return scaled_node_size
